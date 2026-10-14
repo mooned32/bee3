@@ -186,14 +186,6 @@ gslice(u32 out[NPL], const u32 in[NPL], unsigned r)
 */
 
 static void
-slXor(u32 d[NPL], const u32 a[NPL], const u32 b[NPL])
-{
-    size_t i;
-    for (i = 0; i < NPL; ++i)
-        d[i] = a[i] ^ b[i];
-}
-
-static void
 slXorInto(u32 a[NPL], const u32 b[NPL])
 {
     size_t i;
@@ -210,6 +202,25 @@ slAddInto(u32 a[NPL], const u32 b[NPL])
     {
         const u32 x = a[i], y = b[i], t = x ^ y;
         a[i] = t ^ carry;
+        carry = (x & y) | (t & carry);
+    }
+}
+
+/*  d = a + b по модулю 2^32.
+
+    \warning d НЕ накапливается на прежнее содержимое: результат
+        присваивается, а не прибавляется. Реализация через
+        «d += a; d += b» дала бы зависимость от исходного d и читалась
+        бы верно с первого взгляда — поэтому написана явно. */
+static void
+slAdd(u32 d[NPL], const u32 a[NPL], const u32 b[NPL])
+{
+    u32 carry = 0;
+    size_t i;
+    for (i = 0; i < NPL; ++i)
+    {
+        const u32 x = a[i], y = b[i], t = x ^ y;
+        d[i] = t ^ carry;
         carry = (x & y) | (t & carry);
     }
 }
@@ -234,13 +245,17 @@ slSubInto(u32 a[NPL], const u32 b[NPL])
     \warning Порядок операций важен. В такте исходного шифра стоит
         b += G21(...) ^ i, то есть сначала XOR с константой, потом
         сложение. Переставлять эти две операции нельзя: сложение не
-        линейно по XOR. */
+        линейно по XOR.
+
+    \warning Константа разворачивается по битам, а не прибавляется к
+        каждой дорожке. Присваивание a[i] ^= v даёт правильный результат
+        только для младшего бита константы. */
 static void
 slConstXor(u32 a[NPL], u32 v)
 {
     size_t i;
     for (i = 0; i < NPL; ++i)
-        a[i] ^= v;
+        a[i] ^= ((v >> i) & 1u) ? 0xFFFFFFFFu : 0u;
 }
 
 /*
@@ -259,10 +274,10 @@ typedef struct {
 static void
 sliceCtxInit(slice_ctx* ctx, const u32 key[8])
 {
-    size_t k, j;
+    size_t k, i;
     for (k = 0; k < 8; ++k)
-        for (j = 0; j < NPL; ++j)
-            ctx->sk[k][j] = key[k];
+        for (i = 0; i < NPL; ++i)
+            ctx->sk[k][i] = ((key[k] >> i) & 1u) ? 0xFFFFFFFFu : 0u;
 }
 
 /*
@@ -278,23 +293,50 @@ sliceCtxInit(slice_ctx* ctx, const u32 key[8])
 #define SUBKEY_E(K, i, j)  K[((7 * (i) - 7 + (j)) % 8 + 8) % 8]
 #define SUBKEY_D(K, i, j)  K[((7 * (i) - 1 - (j)) % 8 + 8) % 8]
 
-#define SL_ROUND(A, B, C, D, SKA, i, SK)                                 \
-    do {                                                                 \
-        u32 t[NPL];                                                      \
-        /*  Порядок операций и разрядность повторяют такт исходного        \
-            шифра дословно; переставлять операции нельзя. */               \
-        slXor(t, A, SK(SKA, i, 0)); gslice(t, t,  5); slXorInto(B, t);  \
-        slXor(t, D, SK(SKA, i, 1)); gslice(t, t, 21); slXorInto(C, t);  \
-        slXor(t, B, SK(SKA, i, 2)); gslice(t, t, 13); slSubInto(A, t);  \
-        slAddInto(C, B);                                                \
-        slXor(t, C, SK(SKA, i, 3)); gslice(t, t, 21);                     \
-        slConstXor(t, (u32)(i));   /* XOR с константой ДО сложения */     \
-        slAddInto(B, t);                                                \
-        slSubInto(C, B);                                                \
-        slXor(t, C, SK(SKA, i, 4)); gslice(t, t, 13); slAddInto(D, t);  \
-        slXor(t, A, SK(SKA, i, 5)); gslice(t, t, 21); slXorInto(B, t);  \
-        slXor(t, D, SK(SKA, i, 6)); gslice(t, t,  5); slXorInto(C, t);  \
-    } while (0)
+/*
+*******************************************************************************
+Такт
+
+\warning Порядок операций и разрядность повторяют такт исходного шифра
+    дословно. В частности, прибавление тактового ключа — это
+    32-разрядное СЛОЖЕНИЕ, а не исключающее И; сложение не линейно,
+    и перестановка операций меняет результат.
+
+\warning Реализовано функцией, а не макросом. Макрос с семью
+    аргументами, часть из которых — указатели, опасен: подстановка
+    параметров неочевидна, а ошибка в ней не видна ни компилятору,
+    ни проверке стиля. Функция даёт те же права на встраивание.
+
+    encir: 0 — зашифрование (ключи по 7i-7+j), 1 — расшифрование.
+*******************************************************************************
+*/
+
+static void
+slRound(u32* const p[4], const u32 ska[8][NPL], unsigned i, int decr)
+{
+    u32 t[NPL];
+
+    /*  Порядок тактовых ключей:
+            зашифрование   K[(7i - 7 + j) mod 8]
+            расшифрование  K[(7i - 1 - j) mod 8]
+        при j = 0..6. Значения приводятся по модулю 8, поскольку индекс
+        может оказаться отрицательным при малых i. */
+#define SKA(j) (ska[decr ? ((int)(7 * i) - 1 - (int)(j)) % 8 : (((int)(7 * i) - 7 + (int)(j)) % 8 + 8) % 8])
+
+    slAdd(t, p[0], SKA(0)); gslice(t, t,  5); slXorInto(p[1], t);
+    slAdd(t, p[3], SKA(1)); gslice(t, t, 21); slXorInto(p[2], t);
+    slAdd(t, p[1], SKA(2)); gslice(t, t, 13); slSubInto(p[0], t);
+    slAddInto(p[2], p[1]);
+    slAdd(t, p[2], SKA(3)); gslice(t, t, 21);
+    slConstXor(t, (u32)i);
+    slAddInto(p[1], t);
+    slSubInto(p[2], p[1]);
+    slAdd(t, p[2], SKA(4)); gslice(t, t, 13); slAddInto(p[3], t);
+    slAdd(t, p[0], SKA(5)); gslice(t, t, 21); slXorInto(p[1], t);
+    slAdd(t, p[3], SKA(6)); gslice(t, t,  5); slXorInto(p[2], t);
+
+#undef SKA
+}
 
 /*  Завершающая перестановка: a<->b, c<->d, b<->c при зашифровании
     и a<->b, c<->d, a<->d при расшифровании. Различаются, поэтому
@@ -352,7 +394,7 @@ bee3BeltBlockEncrSlice(u32 planes[4][NPL], const u32 key[8])
 
     for (i = 1; i <= 8; ++i)
     {
-        SL_ROUND(p[0], p[1], p[2], p[3], ctx.sk, i, SUBKEY_E);
+        slRound(p, ctx.sk, (unsigned)i, 0);
         if (i != 8)
             NEXT_E(p);
     }
@@ -406,7 +448,7 @@ bee3BeltBlockDecrSlice(u32 planes[4][NPL], const u32 key[8])
 
     for (i = 8; i >= 1; --i)
     {
-        SL_ROUND(p[0], p[1], p[2], p[3], ctx.sk, i, SUBKEY_D);
+        slRound(p, ctx.sk, (unsigned)i, 1);
         if (i != 1)
             NEXT_D(p);
     }

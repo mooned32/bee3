@@ -58,7 +58,24 @@ endif()
 
 add_library(bee3 STATIC
     src/core/secure_mem.c
+    src/crypto/belt/belt_block.c
 )
+
+#  src/crypto/belt/belt_slice.c в сборку НЕ включён.
+#
+#  Константно-временный срез не проходит проверку на соответствие
+#  эталонной реализации и потому не выпускается. Проверены по отдельности
+#  и признаны корректными: bee3BeltHslice (на всех 256 входах),
+#  bee3BeltSlicePack/Unpack, арифметика над дорожками (50000 пар),
+#  gslice для r = 5, 13, 21 (20000 входов), slRound (один такт).
+#  Не сходится сборка тактов — расхождение не локализовано.
+#
+#  Включение возможно только вместе с падающим тестом:
+if(BEE3_BUILD_SLICE)
+    message(FATAL_ERROR
+        "BEE3_BUILD_SLICE: срез не соответствует эталону. "
+        "См. docs/notes/001-belt-h.md.")
+endif()
 
 add_library(bee3::bee3 ALIAS bee3)
 
@@ -100,6 +117,10 @@ if(BEE3_BUILD_TOOLS)
     add_executable(bee3_selftest tools/selftest.c)
     target_link_libraries(bee3_selftest PRIVATE bee3::bee3)
     bee3_apply_strict_flags(bee3_selftest POSITION_INDEP)
+
+    add_executable(bee3_belt_test test/belt_test.c)
+    target_link_libraries(bee3_belt_test PRIVATE bee3::bee3)
+    bee3_apply_strict_flags(bee3_belt_test POSITION_INDEP)
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -108,7 +129,8 @@ endif()
 
 if(BEE3_BUILD_TESTS)
     enable_testing()
-    add_test(NAME selftest COMMAND bee3_selftest)
+    add_test(NAME selftest     COMMAND bee3_selftest)
+    add_test(NAME belt_block   COMMAND bee3_belt_test)
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
