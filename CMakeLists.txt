@@ -59,6 +59,8 @@ endif()
 add_library(bee3 STATIC
     src/core/secure_mem.c
     src/crypto/belt/belt_block.c
+    src/crypto/bash/bash_f.c
+    src/crypto/bash/bash_hash.c
 )
 
 #  src/crypto/belt/belt_slice.c в сборку НЕ включён.
@@ -101,7 +103,7 @@ set(BEE3_SECURE_MEM_SOURCES src/core/secure_mem.c)
 bee3_apply_strict_flags(bee3 NO_BUILTIN)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Ассемблерные модули (Bash, bit-sliced Belt)
+# Ассемблерные модули (bit-sliced Belt, варианты bash)
 #
 # Собираются с -Wa,--noexecstack: стек исполняемым быть не должен ни при
 # каких условиях.
@@ -121,6 +123,11 @@ if(BEE3_BUILD_TOOLS)
     add_executable(bee3_belt_test test/belt_test.c)
     target_link_libraries(bee3_belt_test PRIVATE bee3::bee3)
     bee3_apply_strict_flags(bee3_belt_test POSITION_INDEP)
+
+    add_executable(bee3_bash_test test/bash_test.c)
+    target_link_libraries(bee3_bash_test PRIVATE bee3::bee3)
+    target_include_directories(bee3_bash_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
+    bee3_apply_strict_flags(bee3_bash_test POSITION_INDEP)
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -131,6 +138,7 @@ if(BEE3_BUILD_TESTS)
     enable_testing()
     add_test(NAME selftest     COMMAND bee3_selftest)
     add_test(NAME belt_block   COMMAND bee3_belt_test)
+    add_test(NAME bash         COMMAND bee3_bash_test)
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
