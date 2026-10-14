@@ -1,0 +1,164 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Bee3 — стиль оформления.
+#
+# Базовая конвенция наследуется из ~/Projects/.clang-format (домашний стиль
+# пользователя). Ниже перечислены ТОЛЬКО отличия и дополнения, важные для
+# криптографической библиотеки.
+#
+# Отличия от домашнего стиля и почему:
+#
+#  SortIncludes: CaseSensitive       — в крипто-проекте порядок include'ов
+#                                     подчинён строгому соглашению (см.
+#                                     IncludeCategories): сначала «свой»
+#                                     заголовок, потом bee3/*, потом
+#                                     платформенные, потом libc. Bee2
+#                                     придерживается именно этого порядка,
+#                                     и он же является проверяемым
+#                                     правилом для IWYU.
+#
+#  BreakStringLiterals: false        — разрыв строковых литералов
+#                                     недопустим: в тест-векторах и в
+#                                     таблицах инициализации это ломает
+#                                     визуальное соответствие эталону из
+#                                     приложения стандарта.
+#
+#  InsertNewlineAtEOF: true           — единообразие, нечувствительно к git.
+#
+#  ReflowComments: false              — комментарии на русском с ручным
+#                                     выравниванием по смыслу нельзя
+#                                     переформатировать автоматически.
+#
+#  ColumnLimit: 80                   — облегчает ревью в параллельном diff.
+#
+---
+Language: Cpp
+
+AccessModifierOffset: -4
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None
+AlwaysBreakTemplateDeclarations: false
+
+# Порядок break'ов в сложных выражениях.
+#
+# BreakBeforeBinaryOperators: None выбран сознательно: в крипто-коде
+# длинные выражения вида
+#     buf[j] = (u32)a[0] | ((u32)a[1] << 8) | ((u32)a[2] << 16) | ...
+# переносятся по «старшему» оператору, и продолжать строку с оператором
+# в начале визуально читается хуже, чем в конце.
+BreakBeforeBinaryOperators: None
+BreakBeforeBraces: Custom
+BreakBeforeInheritanceComma: false
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeComma
+BreakStringLiterals: false
+
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterFunction: true
+  AfterNamespace: true
+  AfterObjCDeclaration: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+
+ColumnLimit: 80
+CommentPragmas: '^ (IWYU|clang-tidy|BEE3-CT):'
+CompactNamespaces: false
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 4
+Cpp11BracedListStyle: false
+DerivePointerAlignment: false
+DisableFormat: false
+
+# ── Соглашение об include'ах (проверяется IWYU) ───────────────────────────
+#
+# 1. Собственный заголовок модуля.
+# 2. Остальные заголовки bee3.
+# 3. bee3/crypto/legacy/** — отдельная категория, чтобы глаз сразу видел,
+#    что модуль тянет устаревший примитив.
+# 4. Системные (C).
+# 5. Системные (C++).
+IncludeBlocks: Preserve
+IncludeCategories:
+  - Regex: '^bee3/[^/]+\.h$'
+    Priority: 1
+  - Regex: '^bee3/crypto/legacy/'
+    Priority: 3
+  - Regex: '^bee3/'
+    Priority: 2
+  - Regex: '^<[a-z0-9_]+\.h>$'
+    Priority: 4
+  - Regex: '^<[A-Z_a-z0-9/]+>$'
+    Priority: 6
+  - Regex: '^<.*>$'
+    Priority: 5
+IncludeIsMainRegex: '(_test|test)?$'
+
+IndentCaseLabels: false
+IndentGotoLabels: false
+IndentPPDirectives: None
+IndentWidth: 4
+IndentWrappedFunctionNames: false
+InsertNewlineAtEOF: true
+KeepEmptyLinesAtStartOfBlocks: false
+LineEnding: LF
+MacroBlockBegin: ''
+MacroBlockEnd: ''
+MaxEmptyLinesToKeep: 1
+NamespaceIndentation: None
+ObjCBinPackProtocolList: Auto
+ObjCBlockIndentWidth: 4
+
+PenaltyBreakAssignment: 10
+PenaltyBreakBeforeFirstCallParameter: 30
+PenaltyBreakComment: 1000
+PenaltyBreakFirstLessLess: 0
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 10000
+PenaltyReturnTypeOnItsOwnLine: 60
+
+PointerAlignment: Right
+QualifierAlignment: Custom
+QualifierIndentation: Custom
+ReflowComments: false
+SortIncludes: CaseSensitive
+SortUsingDeclarations: true
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatementsExceptForEachMacros
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInContainerLiterals: true
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+Standard: Latest
+TabWidth: 4
+UseTab: Never
+...

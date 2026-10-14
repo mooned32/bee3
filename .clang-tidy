@@ -1,0 +1,197 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Bee3 — конфигурация clang-tidy.
+#
+# Принципы отбора:
+#
+#   1. Включаются только проверки, дающие осмысленный сигнал. Включать
+#      `checks: '*'` нельзя: примерно 40% правил дают ложные срабатывания
+#      именно на криптографическом коде (см. список EXCLUDED ниже).
+#
+#   2. Ложное срабатывание на CT-коде дороже отсутствия проверки. Если
+#      проверка конфликтует с константно-временной реализацией — она
+#      отключается осознанно, а не молча.
+#
+#   3. Проверки применяются только к коду проекта. Системные заголовки
+#      не анализируются (HeaderFilterRegex).
+#
+#   4. Любое подавление — только через `// NOLINT(...)` с указанием
+#      причины в соседнем комментарии. Глобальных исключений в этом
+#      файле для отдельных мест намеренно нет: NOLINT — это точка
+#      принятия решения человеком, её должно быть видно в diff.
+#
+# Формат NOLINT, принятый в проекте:
+#
+#     // Причина: <объяснение в одну-две строки>.
+#     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+#
+---
+Checks: >
+    clang-analyzer-*,
+    bugprone-*,
+    cert-*,
+    misc-*,
+    performance-*,
+    portability-*,
+    readability-*,
+    cppcoreguidelines-*,
+    modernize-*,
+    abi-*,
+    concurrency-*,
+    -abseil-*,
+    -altera-*,
+    -android-*,
+    -boost-*,
+    -darwin-*,
+    -fuchsia-*,
+    -google-*,
+    -hicpp-*,
+    -linuxkernel-*,
+    -llvmlibc-*,
+    -mpi-*,
+    -objc-*,
+    -openmp-*,
+    -zircon-*,
+    -abc-*,
+    -android-cloexec-*,
+    -android-logging-*,
+    -nullability-*,
+    -llvm-header-guard,
+    -llvm-include-order,
+    -llvm-namespace-comment,
+    -llvm-else-after-return,
+    -llvm-prefer-isa-or-dyn-cast-in-container,
+    -llvm-qualified-auto,
+    -llvm-twine-local,
+    -llvm-raw-string-literal,
+    -llvm-join,
+    -llvm-printf-*,
+    -llvm-use-default-member-init,
+    -llvm-vararg,
+    -llvm-casting,
+
+    # ── Шумные на крипто-коде ──────────────────────────────────────────
+    # Криптография состоит из магических чисел по построению: размер
+    # блока 16, маска 0x87, константы S-box, 0x40 маркер падинга sponge,
+    # инициализаторы состояния. Требовать именованные константы здесь
+    # контрпродуктивно.
+    -readability-magic-numbers,
+    -cppcoreguidelines-avoid-magic-numbers,
+    -readability-identifier-naming,
+    -readability-avoid-nested-conditional-operator,
+
+    # Указательная арифметика, C-массивы, reinterpre_cast между байтовыми
+    # представлениями и varargs — не «код smells», а норма крипто-API.
+    -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+    -cppcoreguidelines-pro-bounds-constant-array-index,
+    -cppcoreguidelines-pro-type-reinterpret-cast,
+    -cppcoreguidelines-avoid-c-arrays,
+    -cppcoreguidelines-pro-type-vararg,
+    -cppcoreguidelines-avoid-non-const-global-variables,
+    -cppcoreguidelines-owning-memory,
+
+    # Структурные требования, которые уже обеспечены компилятором
+    # (-Wall -Wextra -Werror + -pedantic-errors) и дублируют его работу.
+    -cppcoreguidelines-pro-type-member-init,
+    -cppcoreguidelines-pro-type-static-cast-downcast,
+    -cppcoreguidelines-pro-type-union-access,
+    -cppcoreguidelines-slicing,
+
+    # Стилистика, конфликтующая с принятой в .clang-format конвенцией.
+    -readability-braces-around-statements,
+    -readability-function-cognitive-complexity,
+    -readability-implicit-bool-conversion,
+    -readability-isolate-declaration,
+    -readability-avoid-const-params-in-decls,
+    -readability-redundant-control-flow,
+    -readability-static-accessed-through-instance,
+    -readability-container-size-empty,
+    -readability-qualified-auto,
+
+    # Производительность: gcc/clang уже хорошо оптимизируют циклы
+    # блочного шифра, а «ручная оптимизация» вредит читаемости кода,
+    # который обязан быть проверяемым построчно.
+    -performance-no-int-to-ptr,
+    -performance-no-automatic-move,
+
+    # Прочие шумные.
+    -misc-non-private-member-variables-in-classes,
+    -misc-use-anonymous-namespace,
+    -misc-use-internal-linkage,
+    -misc-include-cleaner,
+    -misc-const-correctness,
+    -misc-unused-parameters,
+    -misc-unused-using-decls,
+
+    # modernize-* применимы только к C++23-слою; для ядра на C23 они
+    # бессмысленны, поэтому каждое правило отключено поимённо и
+    # включается через NOLINTBEGIN в конкретных файлах.
+    -modernize-use-trailing-return-type,
+    -modernize-use-nodiscard,
+    -modernize-concat-nested-namespaces,
+    -modernize-use-designated-initializers,
+    -modernize-use-starts-ends-with,
+    -modernize-macro-to-enum,
+    -modernize-min-max-use-initializer-list,
+    -modernize-avoid-c-arrays,
+    -modernize-use-ranges,
+    -modernize-loop-convert,
+    -modernize-return-braced-init-list,
+    -modernize-use-emplace,
+
+WarningsAsErrors: 'clang-analyzer-*,bugprone-*,cert-*,performance-*'
+
+HeaderFilterRegex: '(bee3/(?!legacy/)|bee3$)'
+
+FormatStyle: file
+
+CheckOptions:
+  # ── Лимиты сложности: не «ужесточаем до боли», но ловим гигантские
+  #    функции, в которых невозможно проверить константно-временность ──
+  - key: readability-function-size.LineThreshold
+    value: '200'
+  - key: readability-function-size.StatementThreshold
+    value: '120'
+  - key: readability-function-size.BranchThreshold
+    value: '40'
+
+  # ── Именованные параметры: осмысленно только когда функция длинная ──
+  - key: bugprone-easily-swappable-parameters.MinimumLength
+    value: '3'
+  - key: bugprone-easily-swappable-parameters.MinimumParameters
+    value: '4'
+
+  # ── Указатели: «не меняй данные через const-указатель» ──────────────
+  - key: bugprone-assert-side-effect.AssertMacros
+    value: 'assert'
+  - key: bugprone-assert-side-effect.ConstexprVariables
+    value: ''
+
+  # ── Ловит memcpy/memset поверх живых данных: в крипто это редко
+  #    бывает намеренно ─────────────────────────────────────────────────
+  - key: bugprone-use-after-move.MoveAssignmentTypes
+    value: 'std::unique_ptr,std::shared_ptr'
+
+  - key: cert-env33-c.EnvironmentVariables
+    value: ''
+  - key: cert-pos44-c.Interference
+    value: ''
+  - key: cert-dcl37-c.Parameters
+    value: 'function,cfile'
+  - key: cert-dcl51-c.Scope
+    value: '::function'
+  - key: cert-msc50-c.ScratchBuffer
+    value: ''
+  - key: cert-str34-c.AvoidEscapingFunctions
+    value: '::any'
+  - key: cert-oop54-c.SelfAssignment
+    value: ''
+
+  # Ошибочный assert, который всегда истинен — частая ошибка при
+  # невнимательном переносе кода.
+  - key: bugprone-assert-side-effect.ConstantConditions
+    value: 'assert,static_assert,CHECK,REQUIRE'
+
+  # Магическое число sizeof(struct) в цикле — норма, а не баг.
+  - key: readability-suspicious-call-argument
+    value: ''
