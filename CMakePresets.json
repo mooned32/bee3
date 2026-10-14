@@ -1,0 +1,165 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_STANDARD": "23",
+        "CMAKE_C_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "BEE3_STRICT": "ON",
+        "BEE3_ENABLE_LEGACY": "OFF"
+      }
+    },
+
+    {
+      "name": "base-msvc",
+      "hidden": true,
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": { "CMAKE_C_COMPILER": "cl.exe" }
+    },
+
+    {
+      "name": "base-ninja-msvc",
+      "hidden": true,
+      "inherits": "base-msvc",
+      "generator": "Ninja Multi-Config"
+    },
+
+    {
+      "name": "rel",
+      "displayName": "Release — поставляемая сборка",
+      "description": "Оптимизация включена, все меры защиты активны",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+
+    {
+      "name": "debug",
+      "displayName": "Debug — разработка",
+      "description": "Без оптимизации; _FORTIFY_SOURCE автоматически отключается",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+
+    {
+      "name": "opt0",
+      "displayName": "Без оптимизации (-O0)",
+      "description": "Нужен для проверки, что константно-временные свойства не зависят от уровня оптимизации",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_FLAGS_DEBUG": "-g3 -O0"
+      }
+    },
+
+    {
+      "name": "opt3",
+      "displayName": "Агрессивная оптимизация (-O3)",
+      "description": "Компилятор здесь активнее всего переставляет и сворачивает код",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_FLAGS_RELEASE": "-O3 -DNDEBUG"
+      }
+    },
+
+    {
+      "name": "sanitize",
+      "displayName": "ASan + UBSan",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_FLAGS_DEBUG": "-g3 -O1 -fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+
+    {
+      "name": "sanitize-msan",
+      "displayName": "MSan — неинициализированная память",
+      "description": "Наиважнейшая проверка для крипто: чтение неинициализированного состояния здесь означает утечку",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_FLAGS_DEBUG": "-g3 -O1 -fsanitize=memory -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=memory"
+      }
+    },
+
+    {
+      "name": "sanitize-tsan",
+      "displayName": "TSan — гонки данных",
+      "description": "Ловит data race в отложенной инициализации и в счётчиках",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_FLAGS_DEBUG": "-g3 -O1 -fsanitize=thread -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=thread"
+      }
+    },
+
+    {
+      "name": "legacy",
+      "displayName": "Legacy — с устаревшими примитивами",
+      "description": "Только для переноса кода с Bee2 и для сравнительных тестов",
+      "inherits": "base",
+      "cacheVariables": {
+        "BEE3_STRICT": "OFF",
+        "BEE3_ENABLE_LEGACY": "ON"
+      }
+    },
+
+    {
+      "name": "legacy-release",
+      "displayName": "Legacy — поставляемая сборка",
+      "inherits": "legacy",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+
+    {
+      "name": "rel-msvc",
+      "displayName": "Release (MSVC)",
+      "inherits": "base-msvc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_FLAGS": "/permissive- /utf-8"
+      }
+    },
+
+    {
+      "name": "rel-ninja-msvc",
+      "displayName": "Release (MSVC, Ninja Multi-Config)",
+      "inherits": "base-ninja-msvc",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "/permissive- /utf-8"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    { "name": "rel",              "configurePreset": "rel" },
+    { "name": "debug",            "configurePreset": "debug" },
+    { "name": "opt0",             "configurePreset": "opt0" },
+    { "name": "opt3",             "configurePreset": "opt3" },
+    { "name": "sanitize",         "configurePreset": "sanitize" },
+    { "name": "sanitize-msan",    "configurePreset": "sanitize-msan" },
+    { "name": "sanitize-tsan",    "configurePreset": "sanitize-tsan" },
+    { "name": "legacy-release",   "configurePreset": "legacy-release" },
+    { "name": "rel-msvc",         "configurePreset": "rel-msvc" },
+    { "name": "rel-ninja-msvc",   "configurePreset": "rel-ninja-msvc" }
+  ],
+
+  "testPresets": [
+    { "name": "rel",            "configurePreset": "rel" },
+    { "name": "sanitize",       "configurePreset": "sanitize" },
+    { "name": "sanitize-msan",  "configurePreset": "sanitize-msan" },
+    { "name": "sanitize-tsan",  "configurePreset": "sanitize-tsan" }
+  ]
+}

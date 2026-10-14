@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+
+# ── Сборка ──
+build/
+cmake-build-*/
+out/
+compile_commands.json
+
+# ── Артефакты CMakePresets ──
+CMakeUserPresets.json
+
+# ── Объектные файлы и библиотеки ──
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.lib
+*.exp
+
+# ── Артефакты покрытия и санитайзеров ──
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+coverage.info
+lsan.*
+*.san
+
+# ── Редакторы и ОС ──
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
