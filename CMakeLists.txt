@@ -59,9 +59,13 @@ endif()
 add_library(bee3 STATIC
     src/core/secure_mem.c
     src/crypto/belt/belt_block.c
+    src/crypto/belt/belt_compr.c
+    src/crypto/belt/belt_hash.c
     src/crypto/bash/bash_f.c
     src/crypto/bash/bash_hash.c
     src/crypto/bash/bash_prg.c
+    src/crypto/brng/brng_hmac.c
+    src/crypto/brng/brng_ctr.c
 )
 
 #  src/crypto/belt/belt_slice.c в сборку НЕ включён.
@@ -134,6 +138,17 @@ if(BEE3_BUILD_TOOLS)
     target_link_libraries(bee3_bash_prg_test PRIVATE bee3::bee3)
     target_include_directories(bee3_bash_prg_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
     bee3_apply_strict_flags(bee3_bash_prg_test POSITION_INDEP)
+
+    add_executable(bee3_brng_test test/brng_test.c)
+    target_link_libraries(bee3_brng_test PRIVATE bee3::bee3)
+    target_include_directories(bee3_brng_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
+    bee3_apply_strict_flags(bee3_brng_test POSITION_INDEP)
+
+    #  Генератор проверочных данных. Разовый инструмент: собирается
+    #  отдельно, в состав библиотеки и её тестов не входит.
+    add_executable(bee3_gen_brng_kat EXCLUDE_FROM_ALL tools/gen_brng_kat.c)
+    target_link_libraries(bee3_gen_brng_kat PRIVATE bee3::bee3)
+    bee3_apply_strict_flags(bee3_gen_brng_kat POSITION_INDEP)
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -146,6 +161,7 @@ if(BEE3_BUILD_TESTS)
     add_test(NAME belt_block   COMMAND bee3_belt_test)
     add_test(NAME bash         COMMAND bee3_bash_test)
     add_test(NAME bash_prg     COMMAND bee3_bash_prg_test)
+    add_test(NAME brng         COMMAND bee3_brng_test)
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
