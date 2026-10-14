@@ -50,10 +50,18 @@ ctest --preset rel
 | Предупреждения — ошибки | `-Wall -Wextra -Werror` плюс ~35 специализированных флагов |
 | Устаревшее API не компилируется | `-Werror=deprecated-declarations` |
 | Устаревшие примитивы вынесены | `BEE3_ENABLE_LEGACY` (по умолчанию `OFF`), список в `docs/LEGACY.md` |
+| Статический анализ | `BEE3_CLANG_TIDY` (по умолчанию `OFF`), конфигурация в `.clang-tidy` |
 | Алгоритмы проверяются перед первым использованием | `bee3SelfTest()`, требование СТ.3 СТБ 34.101.27-2022 |
 | Очистка секретов реальна | `tools/check_nobuiltin.sh` проверяет машинный код |
 | Разделение legacy герметично | `tools/check_legacy_leaks.py` обходит дерево `#include` |
 | Все меры защиты активны | стек-протектор, `_FORTIFY_SOURCE`, RELRO, BIND_NOW, NX-стек, скрытая видимость символов |
+
+Статический анализ — по требованию: инструмент дорог и требует установки.
+
+```sh
+cmake --preset rel -DBEE3_CLANG_TIDY=ON
+cmake --build --preset rel
+```
 
 Проверки конфигурации:
 
@@ -61,6 +69,11 @@ ctest --preset rel
 python3 tools/check_legacy_leaks.py
 bash    tools/check_nobuiltin.sh
 ```
+
+Те же проверки выполняются в `.github/workflows/build.yml`: сборка и тесты
+в четырёх конфигурациях, проверки конфигурации, соответствие `clang-format`.
+Анализ `clang-tidy` запускается отдельно — при ручном запуске или при
+коммите с `[tidy]` в сообщении.
 
 ## Что реализовано
 

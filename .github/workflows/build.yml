@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Сборка и проверки Bee3.
+#
+# До появления этого файла проект утверждал, что конфигурация символов
+# «ловится линкером в CI». Проверки существовали, а CI — нет. Утверждение
+# было неправдивым, и теперь оно правдиво.
+
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  strict:
+    name: Строгая сборка и тесты
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        #  Только пресеты, у которых есть все три вида: configure, build и
+        #  test. Список из CMakePresets.json, вручную не дополняется.
+        preset: [rel, sanitize, sanitize-msan, sanitize-tsan]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Сборка
+        run: |
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }}
+
+      - name: Тесты
+        run: ctest --preset ${{ matrix.preset }} --output-on-failure
+
+  checks:
+    name: Проверки конфигурации
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Разделение legacy герметично
+        run: python3 tools/check_legacy_leaks.py
+
+      - name: Очистка памяти не удаляется компилятором
+        run: bash tools/check_nobuiltin.sh
+
+      - name: clang-format соответствует стилю
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang-format
+          find src include test tools -name '*.[ch]' -print0 \
+            | xargs -0 --no-run-if-empty clang-format --dry-run --Werror
+
+  tidy:
+    name: clang-tidy
+    runs-on: ubuntu-latest
+    # Дорог и не связан с корректностью; запускается по требованию и при
+    # изменениях конфигурации, а не на каждом коммите.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '[tidy]')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Анализ
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang-tidy
+          cmake --preset rel -DBEE3_CLANG_TIDY=ON
+          cmake --build --preset rel

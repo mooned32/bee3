@@ -33,6 +33,13 @@ option(BEE3_ENABLE_LEGACY
 option(BEE3_BUILD_TESTS  "Собрать тесты"      ON)
 option(BEE3_BUILD_TOOLS  "Собрать утилиты"    ON)
 
+#  clang-tidy. По умолчанию выключен: инструмент дорог и требует отдельной
+#  установки. Конфигурация лежит в .clang-tidy и включается одним ключом:
+#      cmake --preset rel -DBEE3_CLANG_TIDY=ON
+#  Без этой опции файл .clang-tidy не читается ничем, и его содержание
+#  остаётся декларацией. Включение требует clang-tidy в PATH.
+option(BEE3_CLANG_TIDY  "Анализ clang-tidy"   OFF)
+
 # Оптимизация задаётся пресетом, а не флагом по умолчанию:
 # библиотека криптографии не имеет права навязывать оптимизацию сборке,
 # которая её использует.
@@ -105,6 +112,16 @@ if(BEE3_STRICT)
     target_compile_definitions(bee3 PUBLIC BEE3_STRICT)
 endif()
 
+if(BEE3_CLANG_TIDY)
+    find_program(BEE3_CLANG_TIDY_EXE NAMES clang-tidy REQUIRED)
+    set_target_properties(bee3 PROPERTIES
+        C_CLANG_TIDY "${BEE3_CLANG_TIDY_EXE}")
+    message(STATUS "Bee3: clang-tidy — ${BEE3_CLANG_TIDY_EXE}")
+else()
+    message(STATUS
+        "Bee3: clang-tidy выключен. Включить: -DBEE3_CLANG_TIDY=ON")
+endif()
+
 # Очистка секретов: файл обязан собираться без распознавания встроенных
 # функций, иначе memset компилятор удалит.
 set(BEE3_SECURE_MEM_SOURCES src/core/secure_mem.c)
@@ -128,25 +145,6 @@ if(BEE3_BUILD_TOOLS)
     target_link_libraries(bee3_selftest PRIVATE bee3::bee3)
     bee3_apply_strict_flags(bee3_selftest POSITION_INDEP)
 
-    add_executable(bee3_belt_test test/belt_test.c)
-    target_link_libraries(bee3_belt_test PRIVATE bee3::bee3)
-    bee3_apply_strict_flags(bee3_belt_test POSITION_INDEP)
-
-    add_executable(bee3_bash_test test/bash_test.c)
-    target_link_libraries(bee3_bash_test PRIVATE bee3::bee3)
-    target_include_directories(bee3_bash_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
-    bee3_apply_strict_flags(bee3_bash_test POSITION_INDEP)
-
-    add_executable(bee3_bash_prg_test test/bash_prg_test.c)
-    target_link_libraries(bee3_bash_prg_test PRIVATE bee3::bee3)
-    target_include_directories(bee3_bash_prg_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
-    bee3_apply_strict_flags(bee3_bash_prg_test POSITION_INDEP)
-
-    add_executable(bee3_brng_test test/brng_test.c)
-    target_link_libraries(bee3_brng_test PRIVATE bee3::bee3)
-    target_include_directories(bee3_brng_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
-    bee3_apply_strict_flags(bee3_brng_test POSITION_INDEP)
-
     #  Генератор проверочных данных. Разовый инструмент: собирается
     #  отдельно, в состав библиотеки и её тестов не входит.
     add_executable(bee3_gen_brng_kat EXCLUDE_FROM_ALL tools/gen_brng_kat.c)
@@ -160,11 +158,36 @@ endif()
 
 if(BEE3_BUILD_TESTS)
     enable_testing()
-    add_test(NAME selftest     COMMAND bee3_selftest)
+
+    #  Проверочные данные лежат в src/crypto/kat: они нужны и библиотеке,
+    #  и тестам, поэтому в include каталог src/crypto, а не test.
+    set(BEE3_TEST_SRC
+        "bee3_belt_test:test/belt_test.c"
+        "bee3_bash_test:test/bash_test.c"
+        "bee3_bash_prg_test:test/bash_prg_test.c"
+        "bee3_brng_test:test/brng_test.c")
+
+    foreach(entry IN LISTS BEE3_TEST_SRC)
+        string(REPLACE ":" ";" parts "${entry}")
+        list(GET parts 0 TGT_NAME)
+        list(GET parts 1 TGT_SRC)
+        add_executable(${TGT_NAME} ${TGT_SRC})
+        target_link_libraries(${TGT_NAME} PRIVATE bee3::bee3)
+        target_include_directories(${TGT_NAME} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/crypto)
+        bee3_apply_strict_flags(${TGT_NAME} POSITION_INDEP)
+    endforeach()
+
     add_test(NAME belt_block   COMMAND bee3_belt_test)
     add_test(NAME bash         COMMAND bee3_bash_test)
     add_test(NAME bash_prg     COMMAND bee3_bash_prg_test)
     add_test(NAME brng         COMMAND bee3_brng_test)
+
+    #  Проверка конфигурации сборки собирается вместе с утилитами, и её
+    #  тест регистрируется только если утилиты собраны.
+    if(BEE3_BUILD_TOOLS)
+        add_test(NAME selftest COMMAND bee3_selftest)
+    endif()
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -321,7 +321,13 @@ slRound(u32* const p[4], const u32 ska[8][NPL], unsigned i, int decr)
             расшифрование  K[(7i - 1 - j) mod 8]
         при j = 0..6. Значения приводятся по модулю 8, поскольку индекс
         может оказаться отрицательным при малых i. */
-#define SKA(j) (ska[decr ? ((int)(7 * i) - 1 - (int)(j)) % 8 : (((int)(7 * i) - 7 + (int)(j)) % 8 + 8) % 8])
+/*  Индекс тактового ключа приводится по модулю 8 со сдвигом, иначе при
+    малых i получился бы отрицательный индекс. Макрос разбит на строки
+    ради ColumnLimit. */
+#define SKA(j)                                                            \
+    (ska[decr                                                            \
+        ? ((int) (7 * i) - 1 - (int) (j)) % 8                            \
+        : (((int) (7 * i) - 7 + (int) (j)) % 8 + 8) % 8])
 
     slAdd(t, p[0], SKA(0)); gslice(t, t,  5); slXorInto(p[1], t);
     slAdd(t, p[3], SKA(1)); gslice(t, t, 21); slXorInto(p[2], t);
