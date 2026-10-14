@@ -138,12 +138,61 @@ main(void)
         }
     }
 
-    /*  Режим HMAC для генерации, п. 6.3 */
-    printf("/*  Режим HMAC для генерации (п. 6.3), n = 3 */\n");
+    /*  Режим HMAC для генерации, п. 6.3. Сверяется с таблицей В.4. */
+    printf("/*  Режим HMAC для генерации (п. 6.3), n = 3 — таблица В.4 */\n");
     {
         octet out[96];
         bee3BrngHmacCtr(out, 3, k2, 32, s2, 32);
         emit("brng_c3_y", out, 96);
+    }
+
+    /*  Одноразовые пароли: таблицы В.5 (HOTP) и В.6 (TOTP).
+        Генератор САМ СВЕРЯЕТСЯ с опубликованными значениями и при
+        расхождении завершается с ошибкой: молчаливый выпуск вектора,
+        не совпавшего со стандартом, хуже, чем отсутствие вектора. */
+    printf("/*  Одноразовые пароли — таблицы В.5 (HOTP) и В.6 (TOTP) */\n");
+    {
+        static const u64 HC[3] = {
+            0xBE32971343FC9A48ull, 0xBE32971343FC9A49ull, 0xBE32971343FC9A4Aull };
+        static const u32 HR[3] = { 21157984u, 17877985u, 26078636u };
+        static const u64 TT[3] = { 1449165288ull, 1449165300ull, 1449165419ull };
+        static const u32 TR[3] = { 97660664u, 94431522u, 55973851u };
+
+        printf("static const u64 brng_hotp_cnt[3] = { ");
+        for (i = 0; i < 3; ++i)
+            printf("0x%08llX%s", (unsigned long long) HC[i], i == 2 ? "" : ", ");
+        printf(" };\n\n");
+
+        printf("static const u32 brng_hotp_res[3] = { ");
+        for (i = 0; i < 3; ++i)
+        {
+            const u32 r = bee3OtpHotp(8, kIn, sizeof kIn, HC[i]);
+            if (r != HR[i])
+            {
+                fprintf(stderr, "HOTP[%zu] = %u, ожидалось %u\n", i, r, HR[i]);
+                return 1;
+            }
+            printf("%uu%s", r, i == 2 ? "" : ", ");
+        }
+        printf(" };\n\n");
+
+        printf("static const u64 brng_totp_time[3] = { ");
+        for (i = 0; i < 3; ++i)
+            printf("%llu%s", (unsigned long long) TT[i], i == 2 ? "" : ", ");
+        printf(" };\n\n");
+
+        printf("static const u32 brng_totp_res[3] = { ");
+        for (i = 0; i < 3; ++i)
+        {
+            const u32 r = bee3OtpTotp(8, kIn, sizeof kIn, TT[i], 0, 60);
+            if (r != TR[i])
+            {
+                fprintf(stderr, "TOTP[%zu] = %u, ожидалось %u\n", i, r, TR[i]);
+                return 1;
+            }
+            printf("%uu%s", r, i == 2 ? "" : ", ");
+        }
+        printf(" };\n\n");
     }
 
     /*  Контрольные значения belt-hash: та же функция h на сообщениях

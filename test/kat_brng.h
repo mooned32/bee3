@@ -163,7 +163,7 @@ static const octet brng_short_mac_l33[32] = {
     0x47, 0x50, 0xB3, 0x84, 0x08, 0xB9, 0x95, 0xCD
    };
 
-/*  Режим HMAC для генерации (п. 6.3), n = 3 */
+/*  Режим HMAC для генерации (п. 6.3), n = 3 — таблица В.4 */
 static const octet brng_c3_y[96] = {
     0xAF, 0x90, 0x7A, 0x0E, 0x47, 0x0A, 0x3A, 0x1B,
     0x26, 0x8E, 0xCC, 0xCC, 0xC0, 0xB9, 0x0F, 0x23,
@@ -178,6 +178,15 @@ static const octet brng_c3_y[96] = {
     0x24, 0xB4, 0xF3, 0xA1, 0x57, 0x22, 0x1C, 0xFB,
     0xC1, 0x59, 0x7E, 0x96, 0x97, 0x78, 0xC1, 0xE4
    };
+
+/*  Одноразовые пароли — таблицы В.5 (HOTP) и В.6 (TOTP) */
+static const u64 brng_hotp_cnt[3] = { 0xBE32971343FC9A48, 0xBE32971343FC9A49, 0xBE32971343FC9A4A };
+
+static const u32 brng_hotp_res[3] = { 21157984u, 17877985u, 26078636u };
+
+static const u64 brng_totp_time[3] = { 1449165288, 1449165300, 1449165419 };
+
+static const u32 brng_totp_res[3] = { 97660664u, 94431522u, 55973851u };
 
 /*  belt-hash на сообщениях разной длины */
 static const size_t belt_hash_lens[8] = { 0, 1, 31, 32, 33, 39, 40, 64};

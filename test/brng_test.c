@@ -214,6 +214,41 @@ main(void)
             "три слова внутри вызова попарно различны");
     }
 
+    section("Одноразовые пароли: таблицы В.5 и В.6");
+    for (i = 0; i < 3; ++i)
+    {
+        char name[64];
+        (void) snprintf(name, sizeof name, "HOTP, счётчик %zu", i);
+        check(bee3OtpHotp(8, brng_b1_key, sizeof brng_b1_key,
+            brng_hotp_cnt[i]) == brng_hotp_res[i], name);
+    }
+    for (i = 0; i < 3; ++i)
+    {
+        char name[64];
+        (void) snprintf(name, sizeof name, "TOTP, отметка %llu",
+            (unsigned long long) brng_totp_time[i]);
+        check(bee3OtpTotp(8, brng_b1_key, sizeof brng_b1_key,
+            brng_totp_time[i], 0, 60) == brng_totp_res[i], name);
+    }
+    {
+        /*  Пароль при увеличении счётчика обязан меняться: иначе
+            счётчик не выполняет своей функции. */
+        u32 a = bee3OtpHotp(8, brng_b1_key, sizeof brng_b1_key,
+            brng_hotp_cnt[0]);
+        u32 b = bee3OtpHotp(8, brng_b1_key, sizeof brng_b1_key,
+            brng_hotp_cnt[0] + 1);
+        check(a != b, "соседние значения счётчика дают разные пароли");
+        check(a == bee3OtpHotp(8, brng_b1_key, sizeof brng_b1_key,
+            brng_hotp_cnt[0]), "повтор с тем же счётчиком даёт тот же пароль");
+        /*  Разные числа цифр дают разные пароли. */
+        check(bee3OtpHotp(6, brng_b1_key, sizeof brng_b1_key, brng_hotp_cnt[0])
+              == bee3OtpHotp(6, brng_b1_key, sizeof brng_b1_key, brng_hotp_cnt[0]),
+            "6 цифр: повтор стабилен");
+        check(bee3OtpHotp(8, brng_b1_key, sizeof brng_b1_key, brng_hotp_cnt[0])
+              != bee3OtpHotp(6, brng_b1_key, sizeof brng_b1_key, brng_hotp_cnt[0]),
+            "8 цифр и 6 цифр дают разные пароли");
+    }
+
     printf("\n%s\n", failures ? "ЕСТЬ ОШИБКИ" : "ВСЕ ТЕСТЫ ПРОЙДЕНЫ");
     return failures ? 1 : 0;
 }

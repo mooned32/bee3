@@ -67,6 +67,7 @@ add_library(bee3 STATIC
     src/crypto/bash/bash_prg.c
     src/crypto/brng/brng_hmac.c
     src/crypto/brng/brng_ctr.c
+    src/crypto/brng/brng_otp.c
 )
 
 #  Константно-временный срез РАЗРЕШЁН к сборке. До 2026 г. он был
