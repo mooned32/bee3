@@ -4,8 +4,8 @@
     Порядок октетов в тексте стандарта — от младшего к старшему; значения
     ниже приведены как числа, то есть уже с этим порядком учтённым.
 */
-#ifndef __BEE3_TEST_VECTORS_H
-#define __BEE3_TEST_VECTORS_H
+#ifndef __BEE3_KAT_VECTORS_H
+#define __BEE3_KAT_VECTORS_H
 
 /*  Таблица А.1: вход bash-s и значения после каждого из 12 шагов. */
 static const u64 a1_in[3] = {
@@ -109,4 +109,4 @@ static const struct {
         0x47,0xF8,0x97,0x68 } },
 };
 
-#endif /* __BEE3_TEST_VECTORS_H */
+#endif /* __BEE3_KAT_VECTORS_H */

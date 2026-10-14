@@ -21,8 +21,8 @@
 #include "bee3/crypto/bash.h"
 #include "bee3/crypto/bash_prg.h"
 
-#include "prg_kat.h"
-#include "vectors.h"
+#include "kat/prg_kat.h"
+#include "kat/vectors.h"
 
 static int failed = 0;
 

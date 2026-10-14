@@ -17,7 +17,7 @@
 #include <string.h>
 
 #include "bee3/crypto/bash.h"
-#include "vectors.h"
+#include "kat/vectors.h"
 
 /*
 *******************************************************************************

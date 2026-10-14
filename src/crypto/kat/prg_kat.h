@@ -8,8 +8,8 @@
     Данные для всех операций берутся из состояния таблицы А.2, поэтому
     анонс, ключ, ассоциированные данные и сообщение определены однозначно:
     это октеты a2_in начиная со смещения 0. */
-#ifndef __BEE3_TEST_PRG_KAT_H
-#define __BEE3_TEST_PRG_KAT_H
+#ifndef __BEE3_KAT_PRG_H
+#define __BEE3_KAT_PRG_H
 
 static const struct {
     size_t l, d;        /* уровень стойкости и емкость */
@@ -97,4 +97,4 @@ static const struct {
     },
 };
 
-#endif /* __BEE3_TEST_PRG_KAT_H */
+#endif /* __BEE3_KAT_PRG_H */

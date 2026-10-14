@@ -29,7 +29,7 @@
 #include "bee3/crypto/brng.h"
 #include "bee3/crypto/belt.h"
 
-#include "kat_brng.h"
+#include "kat/kat_brng.h"
 
 static int failures;
 

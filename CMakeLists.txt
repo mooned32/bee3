@@ -58,6 +58,7 @@ endif()
 
 add_library(bee3 STATIC
     src/core/secure_mem.c
+    src/core/selftest.c
     src/crypto/belt/belt_block.c
     src/crypto/belt/belt_slice.c
     src/crypto/belt/belt_compr.c
