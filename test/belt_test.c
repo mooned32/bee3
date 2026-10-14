@@ -19,11 +19,9 @@
 
 #include "bee3/crypto/belt.h"
 
-#ifdef BEE3_TEST_SLICE
-/*  Константно-временный срез в сборку не входит: расхождение с эталоном
-    не локализовано, см. docs/notes/001-belt-h.md. Тесты среза включаются
-    только при явном -DBEE3_TEST_SLICE. */
-#endif
+/*  Константно-временный срез входит в сборку с 2026 г.: расхождение
+    с табличной версией локализовано и устранено, см.
+    docs/notes/005-belt-slice.md. Тесты среза выполняются безусловно. */
 
 #define LANES BEE3_BELT_LANES
 #define NPL  32
@@ -111,7 +109,6 @@ test_kat(void)
 *******************************************************************************
 */
 
-#ifdef BEE3_TEST_SLICE
 
 static u32 rng_state = 0x12345678u;
 
@@ -127,6 +124,7 @@ static void
 test_slice_matches_table(void)
 {
     u32 blocks[4][LANES];
+    u32 src[4][LANES];
     u32 planes[4][NPL];
     u32 single[4];
     u32 rkey[8];
@@ -145,24 +143,25 @@ test_slice_matches_table(void)
 
     bee3BeltKeyExpand(rkey, key, 32);
 
-    /*  Раскладка -> срез. */
+    /*  Исходные блоки сохраняются отдельно: bee3BeltSliceUnpack()
+        ПЕРЕЗАПИСЫВАЕТ переданный массив, и если брать из него следующий
+        блок, на втором шаге сравнивается уже шифротекст с шифротекстом.
+        Прежняя версия теста делала именно это и давала правдоподобный
+        вывод о расхождении. */
+    memcpy(src, blocks, sizeof src);
+
     bee3BeltSlicePack(planes, blocks);
     bee3BeltBlockEncrSlice(planes, rkey);
+    bee3BeltSliceUnpack(blocks, planes);
 
-    /*  Срез -> обычное представление, сверка с табличной версией. */
     for (t = 0; t < LANES; ++t)
     {
         for (w = 0; w < 4; ++w)
-            single[w] = blocks[w][t];
+            single[w] = src[w][t];
         bee3BeltBlockEncr(single, rkey);
-
-        bee3BeltSliceUnpack(blocks, planes);
         for (w = 0; w < 4; ++w)
             if (single[w] != blocks[w][t])
                 ok_encr = 0;
-        /*  восстанавливаем входные данные для следующего блока */
-        for (w = 0; w < 4; ++w)
-            blocks[w][t] = single[w];
     }
     check(ok_encr, "срез зашифрования совпадает с табличной версией");
 
@@ -170,12 +169,14 @@ test_slice_matches_table(void)
     for (j = 0; j < LANES; ++j)
         for (w = 0; w < 4; ++w)
             blocks[w][j] = xorshift();
+    memcpy(src, blocks, sizeof src);
     bee3BeltSlicePack(planes, blocks);
     bee3BeltBlockDecrSlice(planes, rkey);
+    bee3BeltSliceUnpack(blocks, planes);
     for (t = 0; t < LANES; ++t)
     {
         for (w = 0; w < 4; ++w)
-            single[w] = blocks[w][t];
+            single[w] = src[w][t];
         bee3BeltBlockDecr(single, rkey);
         for (w = 0; w < 4; ++w)
             if (single[w] != blocks[w][t])
@@ -223,6 +224,7 @@ static void
 test_roundtrip(void)
 {
     u32 blocks[4][LANES];
+    u32 src[4][LANES];
     u32 planes[4][NPL];
     u32 back[4][LANES];
     u32 rkey[8];
@@ -238,16 +240,38 @@ test_roundtrip(void)
         key[w] = (octet)xorshift();
     bee3BeltKeyExpand(rkey, key, 32);
 
+    memcpy(src, blocks, sizeof src);
     bee3BeltSlicePack(planes, blocks);
     bee3BeltBlockEncrSlice(planes, rkey);
     bee3BeltSliceUnpack(back, planes);
 
+    /*  Срез обязан совпасть с табличной версией на всех 32 блоках, а не
+        на одном: один блок проходит и при сбитой раскладке дорожек. */
+    {
+        u32 one[4];
+        for (j = 0; j < LANES && ok; ++j)
+        {
+            for (w = 0; w < 4; ++w)
+                one[w] = src[w][j];
+            bee3BeltBlockEncr(one, rkey);
+            for (w = 0; w < 4 && ok; ++w)
+                if (one[w] != back[w][j])
+                    ok = 0;
+        }
+    }
+    check(ok, "срез совпадает с табличной версией на всех 32 блоках");
+
     /*  Инъективность: 32 блока не должны склеиться в один. */
+    ok = 1;
     for (j = 0; j < LANES && ok; ++j)
         for (w = 0; w < 4 && ok; ++w)
-            if (back[w][j] != blocks[w][j])
-                ok = 0;
-    check(ok, "зашифрование среза обратимо на 32 блоках");
+        {
+            size_t q;
+            for (q = j + 1; q < LANES && ok; ++q)
+                if (back[w][j] == back[w][q])
+                    ok = 0;
+        }
+    check(ok, "32 блока после среза попарно различны");
 
     /*  И обратное преобразование обязано вернуть исходные блоки. */
     bee3BeltSlicePack(planes, back);
@@ -262,7 +286,64 @@ test_roundtrip(void)
     check(ok, "расшифрование среза возвращает исходные блоки");
 }
 
-#endif /* BEE3_TEST_SLICE */
+/*
+*******************************************************************************
+ 4.5. Случайная сверка среза с табличной версией
+*******************************************************************************
+*/
+
+static void
+test_slice_random(void)
+{
+    u32 blocks[4][LANES], planes[4][NPL], out[4][LANES], one[4], rkey[8];
+    octet key[32];
+    size_t i, j, w;
+    int ok = 1;
+    int n;
+
+    for (i = 0; i < 32; ++i)
+        key[i] = (octet)xorshift();
+    bee3BeltKeyExpand(rkey, key, 32);
+
+    /*  Много независимых ключей: ошибка в раскладке ключа по дорожкам
+        проявилась бы не на каждом ключе. */
+    for (n = 0; n < 64 && ok; ++n)
+    {
+        if (n != 0)
+        {
+            for (i = 0; i < 32; ++i)
+                key[i] = (octet)xorshift();
+            bee3BeltKeyExpand(rkey, key, 32);
+        }
+        for (j = 0; j < LANES; ++j)
+            for (w = 0; w < 4; ++w)
+                blocks[w][j] = xorshift();
+
+        bee3BeltSlicePack(planes, blocks);
+        bee3BeltBlockEncrSlice(planes, rkey);
+        bee3BeltSliceUnpack(out, planes);
+
+        for (j = 0; j < LANES && ok; ++j)
+        {
+            for (w = 0; w < 4; ++w)
+                one[w] = blocks[w][j];
+            bee3BeltBlockEncr(one, rkey);
+            for (w = 0; w < 4; ++w)
+                if (one[w] != out[w][j])
+                    ok = 0;
+        }
+
+        bee3BeltBlockDecrSlice(planes, rkey);
+        bee3BeltSliceUnpack(out, planes);
+        for (j = 0; j < LANES && ok; ++j)
+            for (w = 0; w < 4; ++w)
+                if (out[w][j] != blocks[w][j])
+                    ok = 0;
+    }
+    check(ok, "64 ключа по 32 блока: срез равен табличной версии");
+}
+
+
 
 /*
 *******************************************************************************
@@ -302,18 +383,12 @@ main(void)
     test_kat();
     printf("\nключевое расписание:\n");
     test_keyschedule();
-#ifdef BEE3_TEST_SLICE
     printf("\nраскладка:\n");
     test_pack_unpack();
-#endif
-#ifdef BEE3_TEST_SLICE
     printf("\nконстантно-временный срез:\n");
     test_slice_matches_table();
     test_roundtrip();
-#else
-    printf("\nконстантно-временный срез: "
-           "не в сборке (расхождение не локализовано)\n");
-#endif
+    test_slice_random();
 
     printf("\n%s\n", failures == 0 ? "ВСЕ ТЕСТЫ ПРОЙДЕНЫ" : "ЕСТЬ ОШИБКИ");
     return failures == 0 ? 0 : 1;
