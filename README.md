@@ -96,6 +96,6 @@ bash    tools/check_nobuiltin.sh
 
 ## Лицензия
 
-[Apache-2.0](LICENSE.txt). Полный текст лицензии — в файле `LICENSE.txt` в корне
+[Apache-2.0](LICENSE). Полный текст лицензии — в файле `LICENSE` в корне
 репозитория; идентификатор `SPDX-License-Identifier: Apache-2.0` указан
 в `CMakeLists.txt`.
