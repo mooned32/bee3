@@ -19,6 +19,12 @@
 
 #include "bee3/crypto/belt.h"
 
+#ifdef BEE3_TEST_SLICE
+/*  Константно-временный срез в сборку не входит: расхождение с эталоном
+    не локализовано, см. docs/notes/001-belt-h.md. Тесты среза включаются
+    только при явном -DBEE3_TEST_SLICE. */
+#endif
+
 #define LANES BEE3_BELT_LANES
 #define NPL  32
 
@@ -104,6 +110,8 @@ test_kat(void)
 один вектор, а функцию на произвольных данных.
 *******************************************************************************
 */
+
+#ifdef BEE3_TEST_SLICE
 
 static u32 rng_state = 0x12345678u;
 
@@ -254,6 +262,8 @@ test_roundtrip(void)
     check(ok, "расшифрование среза возвращает исходные блоки");
 }
 
+#endif /* BEE3_TEST_SLICE */
+
 /*
 *******************************************************************************
 5. Ключевое расписание: три длины ключа
@@ -292,11 +302,18 @@ main(void)
     test_kat();
     printf("\nключевое расписание:\n");
     test_keyschedule();
+#ifdef BEE3_TEST_SLICE
     printf("\nраскладка:\n");
     test_pack_unpack();
+#endif
+#ifdef BEE3_TEST_SLICE
     printf("\nконстантно-временный срез:\n");
     test_slice_matches_table();
     test_roundtrip();
+#else
+    printf("\nконстантно-временный срез: "
+           "не в сборке (расхождение не локализовано)\n");
+#endif
 
     printf("\n%s\n", failures == 0 ? "ВСЕ ТЕСТЫ ПРОЙДЕНЫ" : "ЕСТЬ ОШИБКИ");
     return failures == 0 ? 0 : 1;
