@@ -22,45 +22,7 @@
 #include "bee3/core/secure_mem.h"
 
 #include "bee3/crypto/bash.h"
-
-/*
-*******************************************************************************
-Доступ к отдельным октетам состояния
-
-Состояние хранится в 24 словах типа u64, а sponge работает с октетами.
-Приведение указателя u64* к octet* запрещено флагом -Wcast-align=strict,
-включённым в сборку, поэтому доступ выполняется через сдвиги и маску.
-
-\remark Запись ЗАМЕЩАЕТ октет целиком, а не накладывает его поверх. Это не
-        стилистический выбор: блок поглощения заменяет первые 1536 − 4ℓ бит
-        состояния (п. 7.3, шаг 4.1), а не накапливает в них. После вызова
-        bash-f содержимое тактовой области произвольно, и наложение вместо
-        замены дало бы другой результат начиная со второго блока.
-*******************************************************************************
-*/
-
-static void
-bashStPut(
-    bee3BashState* st,
-    size_t k,
-    octet v
-)
-{
-    const size_t w = k / 8;
-    const size_t sh = 8 * (k % 8);
-    const u64 mask = ((u64)0xFF) << sh;
-
-    st->s[w] = (st->s[w] & ~mask) | ((u64)v << sh);
-}
-
-static octet
-bashStGet(
-    const bee3BashState* st,
-    size_t k
-)
-{
-    return (octet)(st->s[k / 8] >> (8 * (k % 8)));
-}
+#include "st.h"
 
 /*
 *******************************************************************************
@@ -113,8 +75,7 @@ bee3BashUpdate(
         if (take > len)
             take = len;
 
-        for (size_t i = 0; i < take; ++i)
-            bashStPut(st, st->bufPos + i, data[i]);
+        bee3StSetMem(st->s, st->bufPos, data, take);
 
         st->bufPos += take;
         data += take;
@@ -151,15 +112,14 @@ bee3BashFinal(
 {
     size_t i;
 
-    for (i = st->bufPos; i < st->bufLen; ++i)
-        bashStPut(st, i, 0);
-    bashStPut(st, st->bufPos, 0x40);
+    bee3StZero(st->s, st->bufPos, st->bufLen - st->bufPos);
+    bee3StPut(st->s, st->bufPos, 0x40);
 
     bee3BashF(st->s);
     st->bufPos = 0;
 
     for (i = 0; i < hashLen; ++i)
-        hash[i] = bashStGet(st, i);
+        hash[i] = bee3StGet(st->s, i);
 }
 
 void

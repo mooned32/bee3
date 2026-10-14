@@ -61,6 +61,7 @@ add_library(bee3 STATIC
     src/crypto/belt/belt_block.c
     src/crypto/bash/bash_f.c
     src/crypto/bash/bash_hash.c
+    src/crypto/bash/bash_prg.c
 )
 
 #  src/crypto/belt/belt_slice.c в сборку НЕ включён.
@@ -128,6 +129,11 @@ if(BEE3_BUILD_TOOLS)
     target_link_libraries(bee3_bash_test PRIVATE bee3::bee3)
     target_include_directories(bee3_bash_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
     bee3_apply_strict_flags(bee3_bash_test POSITION_INDEP)
+
+    add_executable(bee3_bash_prg_test test/bash_prg_test.c)
+    target_link_libraries(bee3_bash_prg_test PRIVATE bee3::bee3)
+    target_include_directories(bee3_bash_prg_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
+    bee3_apply_strict_flags(bee3_bash_prg_test POSITION_INDEP)
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -139,6 +145,7 @@ if(BEE3_BUILD_TESTS)
     add_test(NAME selftest     COMMAND bee3_selftest)
     add_test(NAME belt_block   COMMAND bee3_belt_test)
     add_test(NAME bash         COMMAND bee3_bash_test)
+    add_test(NAME bash_prg     COMMAND bee3_bash_prg_test)
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
